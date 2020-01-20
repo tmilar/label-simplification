@@ -4,15 +4,19 @@ import com.tmilar.labelsimplification.model.Label;
 import com.tmilar.labelsimplification.model.SimplifiedLabel;
 import com.tmilar.labelsimplification.service.LabelSimplificationService;
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.csv.CSVRecord;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -25,6 +29,7 @@ public class LabelSimplificationCli {
     String inputCsvPath = "/data/input_items.csv";
     String csvLabelColName = "Description";
     String csvSeparator = ",";
+    String outputCsvPath = "./out/items_simplified.csv";
 
     // initialize 
     String[][] extractionsData = getExtractionsData();
@@ -40,11 +45,9 @@ public class LabelSimplificationCli {
         .collect(Collectors.toList());
 
     // output
-    String simplifiedLabelsStr = simplifiedLabels.stream()
-        .map(SimplifiedLabel::toString)
-        .collect(Collectors.joining("\n"));
+    writeResultToCsv(simplifiedLabels, outputCsvPath, csvSeparator);
 
-    logger.info("Results:\n" + simplifiedLabelsStr);
+    logger.info("Saved {} results to: '{}'", simplifiedLabels.size(), outputCsvPath);
   }
 
   /**
@@ -103,5 +106,32 @@ public class LabelSimplificationCli {
         {"Idioma", "Español", "SP]Spanish]Esp", null, null},
         {"Idioma", "Ingles", "", null, null}
     };
+  }
+
+  /**
+   * Write simplified labels result to an output CSV file.
+   *
+   * @param simplifiedLabels - the labels simplified
+   * @param outputCsvPath    - csv path to write to
+   * @param csvSeparator     - separator to use
+   * @throws IOException - exception if path doesn't exist or inaccessible
+   */
+  private static void writeResultToCsv(List<SimplifiedLabel> simplifiedLabels, String outputCsvPath,
+      String csvSeparator) throws IOException {
+
+    try (
+        BufferedWriter writer = Files.newBufferedWriter(Paths.get(outputCsvPath));
+
+        CSVPrinter csvPrinter = new CSVPrinter(writer, CSVFormat.DEFAULT
+            .withHeader("Original", "Simplified")
+            .withDelimiter(csvSeparator.charAt(0)));
+    ) {
+
+      for (SimplifiedLabel label : simplifiedLabels) {
+        csvPrinter.printRecord(label.getLabel(), label.getSimplifiedLabel());
+      }
+
+      csvPrinter.flush();
+    }
   }
 }
