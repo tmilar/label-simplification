@@ -4,7 +4,9 @@ import com.tmilar.labelsimplification.model.Extractor;
 import com.tmilar.labelsimplification.model.SimplifiedLabel;
 import com.tmilar.labelsimplification.util.TreeNode;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -12,6 +14,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -156,7 +159,9 @@ public class LabelSimplificationService {
     visitTree(extractionsTreeRoot, treeNodeVisitor);
 
     List<String> labelExtractions = new ArrayList<>();
+    Map<String, List<String>> regexMatches = new LinkedHashMap<>();
 
+    // for each key, retrieve it's extraction.
     keysSet.forEach(key -> {
       if (!extractionsMap.containsKey(key)) {
         logger.error("No key '{}' present in extractionsMap for label '{}' "
@@ -172,17 +177,44 @@ public class LabelSimplificationService {
         return;
       }
       if (keyExtractions.size() > 1) {
-        logger.debug("More than 1 extractions for key '{}' matched in label '{}'", key, label);
+        String keyExtractionsListStr = keyExtractions.stream()
+            .map(Pair::getValue)
+            .collect(Collectors.joining(","));
+        logger.debug("More than 1 extractions ({}) for key '{}' matched in label '{}' -> '{}'",
+            keyExtractions.size(), key, label, keyExtractionsListStr);
       }
       Pair<Extractor, String> firstExtractionPair = keyExtractions.get(0);
 
       labelExtractions.add(firstExtractionPair.getValue()); // grab the first matched extraction.
+      regexMatches.put(key, firstExtractionPair.getKey()
+          .findRegexMatches(label)); // grab the regex matches, used to calculate remainder later.
     });
+
+    // get remainder, then append to labelExtractions & extractionsMap
+    String cleanRemainder = computeRemainder(label, regexMatches);
+
+    if (cleanRemainder.length() > 0) {
+      labelExtractions.add(cleanRemainder);
+      extractionsMap.put("REMAINDER", Collections.singletonList(Pair.of(null, cleanRemainder)));
+    }
 
     String simplifiedString = String.join(" ", labelExtractions);
 
     SimplifiedLabel simplifiedLabel = new SimplifiedLabel(label, simplifiedString, extractionsMap);
     return simplifiedLabel;
+  }
+
+  private String computeRemainder(String label, Map<String, List<String>> regexMatches) {
+    String remainder = label; // initialize as full label, then remove the matches.
+    for (List<String> matches : regexMatches.values()) {
+      for (String match : matches) {
+        if (match.length() == 0) {
+          continue; // skip empty matches
+        }
+        remainder = remainder.replace(match, "#");
+      }
+    }
+    return remainder.replaceAll("#", "").trim();
   }
 
 }

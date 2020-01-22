@@ -48,15 +48,6 @@ public class Extractor {
       logger.warn("Matcher for key '{}' was null - can't apply to label '{}'", label);
     }
 
-    if (Objects.equals(matcher, "")
-        || Objects.equals(matcher, "*")
-        || Objects.equals(matcher, ".*")) {
-      // 'any' matcher -> return immediately
-      logger.debug("Direct extraction key '{}' (regex: '{}') for label '{}'.",
-          keyName, matcher, label);
-      return extractValue;
-    }
-
     if (checkRegexMatch(label)) {
       return extractValue;
     }
@@ -65,12 +56,7 @@ public class Extractor {
   }
 
   private Boolean checkRegexMatch(String label) {
-    Matcher labelMatcher = compiledMatcher.matcher(label);
-    List<String> matches = new ArrayList<>();
-
-    while (labelMatcher.find()) {
-      matches.add(labelMatcher.group());
-    }
+    List<String> matches = findRegexMatches(label);
 
     if (matches.size() == 0) {
       logger.debug("No extraction match key '{}' (regex: '{}') found for label '{}'.",
@@ -84,6 +70,25 @@ public class Extractor {
     }
 
     return true;
+  }
+
+  public List<String> findRegexMatches(String label) {
+    boolean hasEmptyMatchers = Arrays.stream(matcher.split("\\|", -1)).anyMatch(m -> Objects.equals(m, ""));
+    if(hasEmptyMatchers) {
+      // 'any' matcher -> return immediately
+      logger.debug("Empty extraction of key '{}' (regex 'any match': '{}') for label '{}'.",
+          keyName, matcher, label);
+
+      return Collections.singletonList("");
+    }
+
+    Matcher labelMatcher = compiledMatcher.matcher(label);
+    List<String> matches = new ArrayList<>();
+
+    while (labelMatcher.find()) {
+      matches.add(labelMatcher.group());
+    }
+    return matches;
   }
 
   public String getExtractValue() {
