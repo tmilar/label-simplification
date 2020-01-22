@@ -139,12 +139,16 @@ public class LabelSimplificationCli {
         BufferedWriter writer = Files.newBufferedWriter(Paths.get(outputCsvPath));
 
         CSVPrinter csvPrinter = new CSVPrinter(writer, CSVFormat.DEFAULT
-            .withHeader("Original", "Simplified")
+            .withHeader("Original", "Simplified", "Metadata")
             .withDelimiter(csvSeparator.charAt(0)));
     ) {
 
       for (SimplifiedLabel label : simplifiedLabels) {
-        csvPrinter.printRecord(label.getLabel(), label.getSimplifiedLabel());
+        csvPrinter.printRecord(
+            label.getLabel(),
+            label.getSimplifiedLabel(),
+            label.getExtractedValuesMap()
+        );
       }
 
       csvPrinter.flush();

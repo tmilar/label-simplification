@@ -1,5 +1,6 @@
 package com.tmilar.labelsimplification.model;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.commons.lang3.tuple.Pair;
@@ -27,6 +28,20 @@ public class SimplifiedLabel extends Label {
   public SimplifiedLabel(String label, String simplifiedString,
       Map<String, List<Pair<Extractor, String>>> extractionsMap) {
     this(new Label(label), simplifiedString, extractionsMap);
+  }
+
+  public Map<String, String> getExtractedValuesMap() {
+    Map<String, String> extractedValues = new LinkedHashMap<>();
+
+    extractionsMap.forEach((String key, List<Pair<Extractor, String>> extractions) -> {
+      String extraction = extractions.stream()
+          .map(Pair::getValue)
+          .findFirst()
+          .orElse(null);
+      extractedValues.put(key, extraction);
+    });
+
+    return extractedValues;
   }
 
   public String getSimplifiedLabel() {
