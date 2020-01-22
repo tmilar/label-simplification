@@ -1,5 +1,6 @@
 package com.tmilar.labelsimplification;
 
+import com.tmilar.labelsimplification.model.Extractor;
 import com.tmilar.labelsimplification.model.Label;
 import com.tmilar.labelsimplification.model.SimplifiedLabel;
 import com.tmilar.labelsimplification.service.LabelSimplificationService;
@@ -24,20 +25,21 @@ import org.apache.logging.log4j.Logger;
 public class LabelSimplificationCli {
 
   private static final Logger logger = LogManager.getLogger(LabelSimplificationCli.class);
+  public static final String CSV_SEPARATOR = ",";
 
   public static void main(String[] args) throws IOException {
-    String inputCsvPath = "/data/input_items.csv";
-    String csvLabelColName = "Description";
-    String csvSeparator = ",";
+    String labelsInputCsvPath = "/data/input_items.csv";
+    String labelCsvColName = "Description";
+    String rulesCsvPath = "/data/input_rules.csv";
     String outputCsvPath = "./out/items_simplified.csv";
 
-    // initialize 
-    String[][] extractionsData = getExtractionsData();
+    // initialize with extraction rules
+    List<Extractor> extractionRules = readExtractionRulesFromCsv(rulesCsvPath, CSV_SEPARATOR);
     LabelSimplificationService labelSimplificationService = new LabelSimplificationService();
-    labelSimplificationService.load(extractionsData);
+    labelSimplificationService.load(extractionRules);
 
     // process labels
-    List<Label> labels = readLabelsFromCsv(inputCsvPath, csvSeparator, csvLabelColName);
+    List<Label> labels = readLabelsFromCsv(labelsInputCsvPath, CSV_SEPARATOR, labelCsvColName);
 
     List<SimplifiedLabel> simplifiedLabels = labels.stream()
         .map(label -> new SimplifiedLabel(
@@ -45,7 +47,7 @@ public class LabelSimplificationCli {
         .collect(Collectors.toList());
 
     // output
-    writeResultToCsv(simplifiedLabels, outputCsvPath, csvSeparator);
+    writeResultToCsv(simplifiedLabels, outputCsvPath, CSV_SEPARATOR);
 
     logger.info("Saved {} results to: '{}'", simplifiedLabels.size(), outputCsvPath);
   }
@@ -82,8 +84,7 @@ public class LabelSimplificationCli {
     List<Label> labels = records
         .stream()
         .skip(1)
-        .map(record -> record.get(labelFieldColIndex))
-        .map(Label::new)
+        .map(record -> new Label(record.get(labelFieldColIndex)))
         .collect(Collectors.toList());
 
     csvParser.close();
@@ -92,21 +93,38 @@ public class LabelSimplificationCli {
     return labels;
   }
 
-  private static String[][] getExtractionsData() {
-    // TODO this is a hardcoded sample. Fetch actual data from a valid input.
-    return new String[][]{
-        // keyName, extractedValue, matcher, parentKeyName, parentValue
-        {"Juego", "Magic", "Mtg|Mag", null, null},
-        {"Juego", "Pokemon", "Pok|Pkm", null, null},
-        {"Coleccion", "Sun & Moon", "SM1|Sun & Moon", "Juego", "Pokemon"},
-        {"Coleccion", "Sun & Moon: Guardians Rising", "SM2|Guardians Rising", "Juego", "Pokemon"},
-        {"Coleccion", "Theros", "Theros", "Juego", "Magic"},
-        {"TipoProducto", "Booster Box", "Booster Box|Booster Display Box", "Juego", "Pokemon"},
-        {"TipoProducto", "Booster Box", "Booster Box|Booster Display Box", "Juego", "Magic"},
-        {"Idioma", "Español", "SP]Spanish]Esp", null, null},
-        {"Idioma", "Ingles", "", null, null}
-    };
+  /**
+   * Get transaction labels from CSV file, based on defined structures.
+   *
+   * @param csvPath - path of the csv file.
+   * @return the labels string list
+   */
+  private static List<Extractor> readExtractionRulesFromCsv(String csvPath, String csvSeparator)
+      throws IOException {
+
+    InputStream csvResource = LabelSimplificationCli.class.getResourceAsStream(csvPath);
+
+    Reader bufferedReader = new BufferedReader(new InputStreamReader(csvResource));
+
+    CSVParser csvParser = new CSVParser(bufferedReader,
+        CSVFormat.DEFAULT.withDelimiter(csvSeparator.toCharArray()[0]));
+
+    // Get all rows as list.
+    List<CSVRecord> records = csvParser.getRecords();
+
+    // get labels from each row.
+    List<Extractor> extractors = records
+        .stream()
+        .skip(1)
+        .map(r -> new Extractor(r.get(0), r.get(1), r.get(2), r.get(3), r.get(4)))
+        .collect(Collectors.toList());
+
+    csvParser.close();
+    bufferedReader.close();
+
+    return extractors;
   }
+
 
   /**
    * Write simplified labels result to an output CSV file.

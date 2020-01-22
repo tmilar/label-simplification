@@ -20,8 +20,11 @@ public class Extractor {
 
   // regex to use for check for a match.
   private final String matcher;
-
   private final Pattern compiledMatcher;
+
+  // data refs to parent extractor
+  private String parentKeyName;
+  private String parentValue;
 
   public Extractor(String keyName, String extractValue, String matcher) {
     this.keyName = keyName;
@@ -30,6 +33,13 @@ public class Extractor {
 
     // pre-compile pattern matcher.
     this.compiledMatcher = Pattern.compile(matcher, Pattern.CASE_INSENSITIVE);
+  }
+
+  public Extractor(String keyName, String extractValue, String matcher, String parentKeyName,
+      String parentValue) {
+    this(keyName, extractValue, matcher);
+    this.parentKeyName = parentKeyName;
+    this.parentValue = parentValue;
   }
 
   public String extract(String label) {
@@ -94,5 +104,21 @@ public class Extractor {
         ", extractValue='" + extractValue + '\'' +
         ", matcher='" + matcher + '\'' +
         '}';
+  }
+
+  public String getParentKeyName() {
+    return parentKeyName;
+  }
+
+  public void setParentKeyName(String parentKeyName) {
+    this.parentKeyName = parentKeyName;
+  }
+
+  public String getParentValue() {
+    return parentValue;
+  }
+
+  public void setParentValue(String parentValue) {
+    this.parentValue = parentValue;
   }
 }

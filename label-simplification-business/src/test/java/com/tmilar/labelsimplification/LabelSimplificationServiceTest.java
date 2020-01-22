@@ -1,6 +1,10 @@
 package com.tmilar.labelsimplification;
 
+import com.tmilar.labelsimplification.model.Extractor;
 import com.tmilar.labelsimplification.service.LabelSimplificationService;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -11,13 +15,13 @@ public class LabelSimplificationServiceTest {
 
   @Before
   public void setup() {
-    String[][] extractionRules = sampleExtractionRules();
+    List<Extractor> extractionRules = sampleExtractionRules();
     labelSimplificationService = new LabelSimplificationService();
     labelSimplificationService.load(extractionRules);
   }
 
-  private static String[][] sampleExtractionRules() {
-    return new String[][]{
+  private List<Extractor> sampleExtractionRules() {
+    String[][] data = {
         // keyName, extractedValue, matcher, parentKeyName, parentValue
         {"Juego", "Magic", "Mtg|Mag", null, null},
         {"Juego", "Pokemon", "Pok|Pkm", null, null},
@@ -29,6 +33,11 @@ public class LabelSimplificationServiceTest {
         {"Idioma", "Español", "SP]Spanish]Esp", null, null},
         {"Idioma", "Ingles", "", null, null}
     };
+
+    List<Extractor> extractors = Arrays.stream(data)
+        .map(e -> new Extractor(e[0], e[1], e[2], e[3], e[4])).collect(Collectors.toList());
+
+    return extractors;
   }
 
   @Test

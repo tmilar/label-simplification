@@ -3,7 +3,6 @@ package com.tmilar.labelsimplification.service;
 import com.tmilar.labelsimplification.model.Extractor;
 import com.tmilar.labelsimplification.util.TreeNode;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -22,7 +21,7 @@ public class LabelSimplificationService {
   private Set<String> keysSet;
   private TreeNode<Extractor> extractionsTreeRoot;
 
-  public void load(String[][] data) {
+  public void load(List<Extractor> extractors) {
     Extractor rootExtractor = new Extractor(null, null, "");
     extractionsTreeRoot = new TreeNode<>(rootExtractor);
 
@@ -31,13 +30,13 @@ public class LabelSimplificationService {
 
     keysSet = new LinkedHashSet<>();
 
-    Arrays.stream(data).forEach(e -> {
-      String keyName = e[0];
-      String extractedValue = e[1];
-      String matcher = e[2];
+    extractors.forEach(extractor -> {
+      String keyName = extractor.getKeyName();
+      String extractedValue = extractor.getExtractValue();
+      String matcher = extractor.getMatcher();
 
-      String parentKeyName = e[3];
-      String parentValue = e[4];
+      String parentKeyName = extractor.getParentKeyName();
+      String parentValue = extractor.getParentValue();
 
       keysSet.add(keyName);
 
@@ -45,12 +44,15 @@ public class LabelSimplificationService {
       // if parent present -> find child node by keyName
       // if parent not present -> fail (must match some parent, at least the null root)
 
-      boolean isRootKey = parentKeyName == null || Objects.equals(parentKeyName, "") || Objects
-          .equals(parentKeyName, "null");
+      boolean isRootKey = parentKeyName == null
+          || Objects.equals(parentKeyName, "")
+          || Objects.equals(parentKeyName, "null");
 
       String parentKey = isRootKey ? null : String.join(".", parentKeyName, parentValue);
 
-      if (!treeNodeMap.containsKey(parentKey)) {
+      boolean isParentNodePresent = treeNodeMap.containsKey(parentKey);
+
+      if (!isParentNodePresent) {
         logger.error(
             "Required Parent node [key: '{}', extractValue: '{}'] not found, can't add child node [key: '{}', extractValue: '{}']",
             parentKeyName, parentValue, keyName, extractedValue);
