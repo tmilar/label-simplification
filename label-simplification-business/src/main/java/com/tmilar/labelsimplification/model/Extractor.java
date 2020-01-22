@@ -1,6 +1,8 @@
 package com.tmilar.labelsimplification.model;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Matcher;
@@ -18,13 +20,16 @@ public class Extractor {
   // the value to extract when the match succeeds.
   private final String extractValue;
 
+  private Integer priority = 0;
   // regex to use for check for a match.
   private final String matcher;
   private final Pattern compiledMatcher;
 
-  // data refs to parent extractor
-  private String parentKeyName;
-  private String parentValue;
+  // data ref to parent extractor
+  private String parentPath = "";
+
+  // current path based on keyName, extractValue, and priority
+  private final String currentPath;
 
   public Extractor(String keyName, String extractValue, String matcher) {
     this.keyName = keyName;
@@ -34,13 +39,15 @@ public class Extractor {
 
     // pre-compile pattern matcher.
     this.compiledMatcher = Pattern.compile(matcher, Pattern.CASE_INSENSITIVE);
+
+    this.currentPath = buildCurrentPath();
   }
 
-  public Extractor(String keyName, String extractValue, String matcher, String parentKeyName,
-      String parentValue) {
+  public Extractor(String keyName, String extractValue, String matcher, String parentPath,
+      Integer priority) {
     this(keyName, extractValue, matcher);
-    this.parentKeyName = parentKeyName;
-    this.parentValue = parentValue;
+    this.parentPath = parentPath;
+    this.priority = priority;
   }
 
   public String extract(String label) {
@@ -73,8 +80,9 @@ public class Extractor {
   }
 
   public List<String> findRegexMatches(String label) {
-    boolean hasEmptyMatchers = Arrays.stream(matcher.split("\\|", -1)).anyMatch(m -> Objects.equals(m, ""));
-    if(hasEmptyMatchers) {
+    boolean hasEmptyMatchers = Arrays.stream(matcher.split("\\|", -1))
+        .anyMatch(m -> Objects.equals(m, ""));
+    if (hasEmptyMatchers) {
       // 'any' matcher -> return immediately
       logger.debug("Empty extraction of key '{}' (regex 'any match': '{}') for label '{}'.",
           keyName, matcher, label);
@@ -89,6 +97,15 @@ public class Extractor {
       matches.add(labelMatcher.group());
     }
     return matches;
+  }
+
+  private String buildCurrentPath() {
+    String currentPath = String.format("%s.%s[%d]", keyName, extractValue, priority);
+    String parent = parentPath;
+    if (parent.length() > 0) {
+      parent += ".";
+    }
+    return parent + currentPath;
   }
 
   public String getExtractValue() {
@@ -112,19 +129,23 @@ public class Extractor {
         '}';
   }
 
-  public String getParentKeyName() {
-    return parentKeyName;
+  public Integer getPriority() {
+    return priority;
   }
 
-  public void setParentKeyName(String parentKeyName) {
-    this.parentKeyName = parentKeyName;
+  public void setPriority(Integer priority) {
+    this.priority = priority;
   }
 
-  public String getParentValue() {
-    return parentValue;
+  public String getParentPath() {
+    return parentPath;
   }
 
-  public void setParentValue(String parentValue) {
-    this.parentValue = parentValue;
+  public void setParentPath(String parentPath) {
+    this.parentPath = parentPath;
+  }
+
+  public String getCurrentPath() {
+    return currentPath;
   }
 }

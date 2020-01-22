@@ -115,7 +115,13 @@ public class LabelSimplificationCli {
     List<Extractor> extractors = records
         .stream()
         .skip(1)
-        .map(r -> new Extractor(r.get(0), r.get(1), r.get(2), r.get(3), r.get(4)))
+        .map(r -> new Extractor(
+            r.get(0),
+            r.get(1),
+            r.get(2),
+            r.get(4),
+            Integer.valueOf(r.get(3)))
+        )
         .collect(Collectors.toList());
 
     csvParser.close();

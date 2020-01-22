@@ -24,19 +24,19 @@ public class LabelSimplificationServiceTest {
   private List<Extractor> sampleExtractionRules() {
     String[][] data = {
         // keyName, extractedValue, matcher, parentKeyName, parentValue
-        {"Juego", "Magic", "Mtg|Mag", null, null},
-        {"Juego", "Pokemon", "Pok|Pkm", null, null},
-        {"Coleccion", "Sun & Moon", "SM1|Sun & Moon", "Juego", "Pokemon"},
-        {"Coleccion", "Sun & Moon: Guardians Rising", "SM2|Guardians Rising", "Juego", "Pokemon"},
-        {"Coleccion", "Theros", "Theros", "Juego", "Magic"},
-        {"TipoProducto", "Booster Box", "Booster Box|Booster Display Box", "Juego", "Pokemon"},
-        {"TipoProducto", "Booster Box", "Booster Box|Booster Display Box", "Juego", "Magic"},
-        {"Idioma", "Español", "SP]Spanish]Esp", null, null},
-        {"Idioma", "Ingles", "", null, null}
+        {"Juego", "Magic", "Mtg|Mag", "0", null},
+        {"Juego", "Pokemon", "Pokemon|Pkm", "0", null},
+        {"Coleccion", "Sun & Moon", "SM1|Sun & Moon", "0", "Juego.Pokemon[0]"},
+        {"Coleccion", "Sun & Moon: Guardians Rising", "SM2|Guardians Rising", "0", "Juego.Pokemon[0]"},
+        {"Coleccion", "Theros", "Theros", "0", "Juego.Magic"},
+        {"TipoProducto", "Booster Box", "Booster Box|Booster Display Box", "0", "Juego.Pokemon[0]"},
+        {"TipoProducto", "Booster Box", "Booster Box|Booster Display Box", "0", "Juego.Magic[0]"},
+        {"Idioma", "Español", "SP]Spanish]Esp", "0", null},
+        {"Idioma", "Ingles", "", "0", null}
     };
 
     List<Extractor> extractors = Arrays.stream(data)
-        .map(e -> new Extractor(e[0], e[1], e[2], e[3], e[4])).collect(Collectors.toList());
+        .map(e -> new Extractor(e[0], e[1], e[2], e[4], Integer.valueOf(e[3]))).collect(Collectors.toList());
 
     return extractors;
   }

@@ -5,6 +5,7 @@ import com.tmilar.labelsimplification.model.SimplifiedLabel;
 import com.tmilar.labelsimplification.util.TreeNode;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -39,9 +40,8 @@ public class LabelSimplificationService {
       String keyName = extractor.getKeyName();
       String extractedValue = extractor.getExtractValue();
       String matcher = extractor.getMatcher();
-
-      String parentKeyName = extractor.getParentKeyName();
-      String parentValue = extractor.getParentValue();
+      String parentPath = extractor.getParentPath();
+      Integer priority = extractor.getPriority();
 
       keysSet.add(keyName);
 
@@ -49,29 +49,29 @@ public class LabelSimplificationService {
       // if parent present -> find child node by keyName
       // if parent not present -> fail (must match some parent, at least the null root)
 
-      boolean isRootKey = parentKeyName == null
-          || Objects.equals(parentKeyName, "")
-          || Objects.equals(parentKeyName, "null");
+      boolean isRootKey = parentPath == null
+          || Objects.equals(parentPath, "")
+          || Objects.equals(parentPath, "null");
 
-      String parentKey = isRootKey ? null : String.join(".", parentKeyName, parentValue);
+      String parentKey = isRootKey ? null : parentPath;
 
       boolean isParentNodePresent = treeNodeMap.containsKey(parentKey);
 
       if (!isParentNodePresent) {
         logger.error(
-            "Required Parent node [key: '{}', extractValue: '{}'] not found, can't add child node [key: '{}', extractValue: '{}']",
-            parentKeyName, parentValue, keyName, extractedValue);
+            "Required Parent node [path: '{}'] not found, can't add child node [key: '{}', extractValue: '{}']",
+            parentPath, keyName, extractedValue);
         return;
       }
 
       // parent IS present. Add as new child node to the parent.
       TreeNode<Extractor> parentNode = treeNodeMap.get(parentKey);
 
-      String currentExtractorKey = String.join(".", keyName, extractedValue);
+      String currentExtractorKey = extractor.getCurrentPath();
 
       Optional<TreeNode<Extractor>> childNodeOptional = parentNode.findTreeNodeBy(e ->
-          Objects.equals(e.getKeyName(), keyName)
-              && Objects.equals(e.getExtractValue(), extractedValue));
+              Objects.equals(e.getCurrentPath(), extractor.getCurrentPath())
+      );
 
       boolean isChildAlreadyPresent = childNodeOptional.isPresent();
 
@@ -83,11 +83,11 @@ public class LabelSimplificationService {
         // get existing node, append the matcher regex.
         TreeNode<Extractor> extractorTreeNode = childNodeOptional.get();
         Extractor previous = extractorTreeNode.data;
+
         String combinedMatcher = previous.getMatcher() + "|" + matcher;
 
-        Extractor combinedExtractor = new Extractor(extractor.getKeyName(),
-            extractor.getExtractValue(), combinedMatcher, extractor.getParentKeyName(),
-            extractor.getParentValue());
+        Extractor combinedExtractor = new Extractor(
+            keyName, extractedValue, combinedMatcher, parentPath, priority);
         extractorTreeNode.data = combinedExtractor;
       }
     });
@@ -178,12 +178,15 @@ public class LabelSimplificationService {
       }
       if (keyExtractions.size() > 1) {
         String keyExtractionsListStr = keyExtractions.stream()
-            .map(Pair::getValue)
-            .collect(Collectors.joining(","));
+            .map(e -> e.getValue() + "(" + e.getKey().getPriority() + ")")
+            .collect(Collectors.joining(", "));
         logger.debug("More than 1 extractions ({}) for key '{}' matched in label '{}' -> '{}'",
             keyExtractions.size(), key, label, keyExtractionsListStr);
       }
-      Pair<Extractor, String> firstExtractionPair = keyExtractions.get(0);
+      Pair<Extractor, String> firstExtractionPair = Collections.max(
+          keyExtractions,
+          Comparator.comparing(k -> k.getKey().getPriority())
+      );
 
       labelExtractions.add(firstExtractionPair.getValue()); // grab the first matched extraction.
       regexMatches.put(key, firstExtractionPair.getKey()
