@@ -1,6 +1,7 @@
 package com.tmilar.labelsimplification;
 
 import com.tmilar.labelsimplification.model.Extractor;
+import com.tmilar.labelsimplification.model.SimplifiedLabel;
 import com.tmilar.labelsimplification.service.LabelSimplificationService;
 import java.util.Arrays;
 import java.util.List;
@@ -45,8 +46,8 @@ public class LabelSimplificationServiceTest {
     String label = "Pokemon SM1 booster Box ";
     String expectedLabel = "Pokemon Sun & Moon Booster Box Ingles";
 
-    String simplifiedLabel = labelSimplificationService.simplifyLabel(label);
+    SimplifiedLabel simplifiedLabel = labelSimplificationService.simplifyLabel(label);
 
-    Assert.assertEquals(expectedLabel, simplifiedLabel);
+    Assert.assertEquals(expectedLabel, simplifiedLabel.getSimplifiedLabel());
   }
 }

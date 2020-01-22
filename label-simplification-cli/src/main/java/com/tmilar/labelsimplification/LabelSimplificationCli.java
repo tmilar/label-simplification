@@ -42,8 +42,7 @@ public class LabelSimplificationCli {
     List<Label> labels = readLabelsFromCsv(labelsInputCsvPath, CSV_SEPARATOR, labelCsvColName);
 
     List<SimplifiedLabel> simplifiedLabels = labels.stream()
-        .map(label -> new SimplifiedLabel(
-            label, labelSimplificationService.simplifyLabel(label.getLabel())))
+        .map(label -> labelSimplificationService.simplifyLabel(label.getLabel()))
         .collect(Collectors.toList());
 
     // output
@@ -124,7 +123,6 @@ public class LabelSimplificationCli {
 
     return extractors;
   }
-
 
   /**
    * Write simplified labels result to an output CSV file.

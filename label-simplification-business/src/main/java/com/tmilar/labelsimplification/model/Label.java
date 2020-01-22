@@ -23,4 +23,10 @@ public class Label {
     this.label = label;
   }
 
+  @Override
+  public String toString() {
+    return "Label{" +
+        "label='" + label + '\'' +
+        '}';
+  }
 }

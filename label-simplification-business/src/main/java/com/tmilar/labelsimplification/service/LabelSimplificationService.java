@@ -1,6 +1,7 @@
 package com.tmilar.labelsimplification.service;
 
 import com.tmilar.labelsimplification.model.Extractor;
+import com.tmilar.labelsimplification.model.SimplifiedLabel;
 import com.tmilar.labelsimplification.util.TreeNode;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -120,7 +121,7 @@ public class LabelSimplificationService {
     children.forEach(node -> visitTree(node, visitor));
   }
 
-  public String simplifyLabel(String label) {
+  public SimplifiedLabel simplifyLabel(String label) {
     Map<String, List<Pair<Extractor, String>>> extractionsMap = new HashMap<>();
 
     Function<TreeNode<Extractor>, Boolean> treeNodeVisitor = node -> {
@@ -167,15 +168,20 @@ public class LabelSimplificationService {
       List<Pair<Extractor, String>> keyExtractions = extractionsMap.get(key);
 
       if (keyExtractions.isEmpty()) {
-        logger.debug("No extractions matched in label {} for key {}", label, key);
+        logger.debug("No extractions for key '{}' matched in label '{}'", key, label);
         return;
       }
-      labelExtractions.add(keyExtractions.get(0).getValue());
+      if (keyExtractions.size() > 1) {
+        logger.debug("More than 1 extractions for key '{}' matched in label '{}'", key, label);
+      }
+      Pair<Extractor, String> firstExtractionPair = keyExtractions.get(0);
+
+      labelExtractions.add(firstExtractionPair.getValue()); // grab the first matched extraction.
     });
 
-    String simplifiedLabel = String.join(" ", labelExtractions);
-    // TODO retrieve extra info about the simplification/extractions
+    String simplifiedString = String.join(" ", labelExtractions);
 
+    SimplifiedLabel simplifiedLabel = new SimplifiedLabel(label, simplifiedString, extractionsMap);
     return simplifiedLabel;
   }
 
