@@ -29,7 +29,8 @@ public class Extractor {
   public Extractor(String keyName, String extractValue, String matcher) {
     this.keyName = keyName;
     this.extractValue = extractValue;
-    this.matcher = matcher;
+    // escape empty matcher to end-of-string
+    this.matcher = Objects.equals(matcher, "") ? "$" : matcher;
 
     // pre-compile pattern matcher.
     this.compiledMatcher = Pattern.compile(matcher, Pattern.CASE_INSENSITIVE);

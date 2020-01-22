@@ -8,6 +8,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import org.apache.commons.lang3.tuple.Pair;
@@ -62,10 +63,29 @@ public class LabelSimplificationService {
       // parent IS present. Add as new child node to the parent.
       TreeNode<Extractor> parentNode = treeNodeMap.get(parentKey);
 
-      Extractor extractorChild = new Extractor(keyName, extractedValue, matcher);
-      TreeNode<Extractor> extractorTreeNode = parentNode.addChild(extractorChild);
+      String currentExtractorKey = String.join(".", keyName, extractedValue);
 
-      treeNodeMap.put(String.join(".", keyName, extractedValue), extractorTreeNode);
+      Optional<TreeNode<Extractor>> childNodeOptional = parentNode.findTreeNodeBy(e ->
+          Objects.equals(e.getKeyName(), keyName)
+              && Objects.equals(e.getExtractValue(), extractedValue));
+
+      boolean isChildAlreadyPresent = childNodeOptional.isPresent();
+
+      if (!isChildAlreadyPresent) {
+        // add the current as child , first time.
+        TreeNode<Extractor> currentExtractorTreeNode = parentNode.addChild(extractor);
+        treeNodeMap.put(currentExtractorKey, currentExtractorTreeNode);
+      } else {
+        // get existing node, append the matcher regex.
+        TreeNode<Extractor> extractorTreeNode = childNodeOptional.get();
+        Extractor previous = extractorTreeNode.data;
+        String combinedMatcher = previous.getMatcher() + "|" + matcher;
+
+        Extractor combinedExtractor = new Extractor(extractor.getKeyName(),
+            extractor.getExtractValue(), combinedMatcher, extractor.getParentKeyName(),
+            extractor.getParentValue());
+        extractorTreeNode.data = combinedExtractor;
+      }
     });
   }
 
