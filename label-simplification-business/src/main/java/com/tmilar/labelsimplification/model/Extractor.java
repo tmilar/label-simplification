@@ -66,8 +66,6 @@ public class Extractor {
     List<String> matches = findRegexMatches(label);
 
     if (matches.size() == 0) {
-      logger.debug("No extraction match key '{}' (regex: '{}') found for label '{}'.",
-          keyName, matcher, label);
       return false;
     }
 

@@ -105,7 +105,6 @@ public class LabelSimplificationService {
     // visit {tree} node.
     // If node.key is in map, save the value, and continue to children.
     // If not, don't (just continue on the same level).
-    logger.debug("Visiting: {}", treeNode);
 
     Boolean traverse = visitor.apply(treeNode);
 
@@ -114,12 +113,6 @@ public class LabelSimplificationService {
     }
 
     List<TreeNode<Extractor>> children = treeNode.children;
-
-    if (children.size() > 0) {
-      logger.debug("Traversing to children: [{}]", children);
-    } else {
-      logger.debug("This is leaf, no further children to traverse to.");
-    }
 
     children.forEach(node -> visitTree(node, visitor));
   }
@@ -155,7 +148,6 @@ public class LabelSimplificationService {
       return true;
     };
 
-    logger.debug("Start extraction of label '{}'", label);
     visitTree(extractionsTreeRoot, treeNodeVisitor);
 
     List<String> labelExtractions = new ArrayList<>();
