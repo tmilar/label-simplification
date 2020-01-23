@@ -14,6 +14,9 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
@@ -29,7 +32,8 @@ public class LabelSimplificationCli {
 
   public static void main(String[] args) throws IOException {
     String labelsInputCsvPath = "/data/input_items.csv";
-    String labelCsvColName = "Description";
+    String labelStrColName = "Description";
+    String labelCatColName = "Categoria";
     String rulesCsvPath = "/data/input_rules.csv";
     String outputCsvPath = "./out/items_simplified.csv";
 
@@ -39,16 +43,28 @@ public class LabelSimplificationCli {
     labelSimplificationService.load(extractionRules);
 
     // process labels
-    List<Label> labels = readLabelsFromCsv(labelsInputCsvPath, CSV_SEPARATOR, labelCsvColName);
+    List<Label> labels = readLabelsFromCsv(
+        labelsInputCsvPath, CSV_SEPARATOR, labelStrColName, labelCatColName);
 
-    List<SimplifiedLabel> simplifiedLabels = labels.stream()
-        .map(label -> labelSimplificationService.simplifyLabel(label.getLabel()))
-        .collect(Collectors.toList());
+    Map<String, Set<String>> categoryMappings = labelSimplificationService.getCategoryMappings();
 
     // output
-    writeResultToCsv(simplifiedLabels, outputCsvPath, CSV_SEPARATOR);
+    categoryMappings.forEach((category, keys) -> {
+      List<SimplifiedLabel> simplifiedLabels = labels.stream()
+          .filter(label -> Objects.equals(label.getCategory(), category))
+          .map(labelSimplificationService::simplifyLabel)
+          .collect(Collectors.toList());
 
-    logger.info("Saved {} results to: '{}'", simplifiedLabels.size(), outputCsvPath);
+      String categoryCsvPath = outputCsvPath.replace(".csv", String.format("_%s.csv", category));
+      try {
+        writeResultToCsv(simplifiedLabels, categoryCsvPath, CSV_SEPARATOR);
+      } catch (IOException e) {
+        logger.error("Could not save '{}' labels to csv '{}'", simplifiedLabels, categoryCsvPath, e);
+        return;
+      }
+      logger.info("Saved {} results to: '{}'", simplifiedLabels.size(), outputCsvPath);
+    });
+
   }
 
   /**
@@ -59,7 +75,7 @@ public class LabelSimplificationCli {
    * @return the labels string list
    */
   private static List<Label> readLabelsFromCsv(String csvPath, String csvSeparator,
-      String labelField)
+      String labelField, String categoryField)
       throws IOException {
 
     InputStream csvResource = LabelSimplificationCli.class.getResourceAsStream(csvPath);
@@ -78,12 +94,13 @@ public class LabelSimplificationCli {
     header.iterator().forEachRemaining(headerRow::add);
 
     Integer labelFieldColIndex = headerRow.indexOf(labelField);
+    Integer categoryFieldColIndex = headerRow.indexOf(categoryField);
 
     // get labels from each row.
     List<Label> labels = records
         .stream()
         .skip(1)
-        .map(record -> new Label(record.get(labelFieldColIndex)))
+        .map(record -> new Label(record.get(labelFieldColIndex), record.get(categoryFieldColIndex)))
         .collect(Collectors.toList());
 
     csvParser.close();
@@ -116,11 +133,12 @@ public class LabelSimplificationCli {
         .stream()
         .skip(1)
         .map(r -> new Extractor(
-            r.get(0),
             r.get(1),
             r.get(2),
-            r.get(4),
-            Integer.valueOf(r.get(3)))
+            r.get(3),
+            r.get(5),
+            Integer.valueOf(r.get(4)),
+            r.get(0))
         )
         .collect(Collectors.toList());
 

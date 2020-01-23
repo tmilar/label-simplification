@@ -1,6 +1,7 @@
 package com.tmilar.labelsimplification.service;
 
 import com.tmilar.labelsimplification.model.Extractor;
+import com.tmilar.labelsimplification.model.Label;
 import com.tmilar.labelsimplification.model.SimplifiedLabel;
 import com.tmilar.labelsimplification.util.TreeNode;
 import java.util.ArrayList;
@@ -23,18 +24,16 @@ import org.apache.logging.log4j.Logger;
 public class LabelSimplificationService {
 
   private static final Logger logger = LogManager.getLogger(LabelSimplificationService.class);
+  public static final String REMAINDER_KEY_NAME = "REMAINDER";
 
-  private Set<String> keysSet;
-  private TreeNode<Extractor> extractionsTreeRoot;
+  private Map<String, Set<String>> categoryKeysSet;
+  private Map<String, TreeNode<Extractor>> catExtractionsTreeRoot;
 
   public void load(List<Extractor> extractors) {
     Extractor rootExtractor = new Extractor(null, null, "");
-    extractionsTreeRoot = new TreeNode<>(rootExtractor);
+    catExtractionsTreeRoot = new LinkedHashMap<>();
 
-    Map<String, TreeNode<Extractor>> treeNodeMap = new HashMap<>();
-    treeNodeMap.put(null, extractionsTreeRoot);
-
-    keysSet = new LinkedHashSet<>();
+    categoryKeysSet = new LinkedHashMap<>();
 
     extractors.forEach(extractor -> {
       String keyName = extractor.getKeyName();
@@ -42,8 +41,17 @@ public class LabelSimplificationService {
       String matcher = extractor.getMatcher();
       String parentPath = extractor.getParentPath();
       Integer priority = extractor.getPriority();
+      String category = extractor.getCategory();
 
-      keysSet.add(keyName);
+      if (!categoryKeysSet.containsKey(category)) {
+        LinkedHashSet<String> keysSet = new LinkedHashSet<>();
+        keysSet.add(REMAINDER_KEY_NAME);
+        categoryKeysSet.put(category, keysSet);
+        catExtractionsTreeRoot.put(category, new TreeNode<>(rootExtractor));
+      }
+
+      categoryKeysSet.get(category).add(keyName);
+      TreeNode<Extractor> extractionsTreeRoot = catExtractionsTreeRoot.get(category);
 
       // find parent by parentKeyName & parentKeyValue.
       // if parent present -> find child node by keyName
@@ -53,9 +61,12 @@ public class LabelSimplificationService {
           || Objects.equals(parentPath, "")
           || Objects.equals(parentPath, "null");
 
-      String parentKey = isRootKey ? null : parentPath;
+      String parentKey = isRootKey ? "" : parentPath;
 
-      boolean isParentNodePresent = treeNodeMap.containsKey(parentKey);
+      Optional<TreeNode<Extractor>> parentNodeOpt = extractionsTreeRoot.findTreeNodeBy(e ->
+          Objects.equals(e.getCurrentPath(), parentKey));
+
+      boolean isParentNodePresent = parentNodeOpt.isPresent();
 
       if (!isParentNodePresent) {
         logger.error(
@@ -65,20 +76,17 @@ public class LabelSimplificationService {
       }
 
       // parent IS present. Add as new child node to the parent.
-      TreeNode<Extractor> parentNode = treeNodeMap.get(parentKey);
-
-      String currentExtractorKey = extractor.getCurrentPath();
+      TreeNode<Extractor> parentNode = parentNodeOpt.get();
 
       Optional<TreeNode<Extractor>> childNodeOptional = parentNode.findTreeNodeBy(e ->
-              Objects.equals(e.getCurrentPath(), extractor.getCurrentPath())
+          Objects.equals(e.getCurrentPath(), extractor.getCurrentPath())
       );
 
       boolean isChildAlreadyPresent = childNodeOptional.isPresent();
 
       if (!isChildAlreadyPresent) {
         // add the current as child , first time.
-        TreeNode<Extractor> currentExtractorTreeNode = parentNode.addChild(extractor);
-        treeNodeMap.put(currentExtractorKey, currentExtractorTreeNode);
+        parentNode.addChild(extractor);
       } else {
         // get existing node, append the matcher regex.
         TreeNode<Extractor> extractorTreeNode = childNodeOptional.get();
@@ -87,7 +95,7 @@ public class LabelSimplificationService {
         String combinedMatcher = previous.getMatcher() + "|" + matcher;
 
         Extractor combinedExtractor = new Extractor(
-            keyName, extractedValue, combinedMatcher, parentPath, priority);
+            keyName, extractedValue, combinedMatcher, parentPath, priority, category);
         extractorTreeNode.data = combinedExtractor;
       }
     });
@@ -117,8 +125,18 @@ public class LabelSimplificationService {
     children.forEach(node -> visitTree(node, visitor));
   }
 
-  public SimplifiedLabel simplifyLabel(String label) {
+  public SimplifiedLabel simplifyLabel(Label label) {
     Map<String, List<Pair<Extractor, String>>> extractionsMap = new HashMap<>();
+
+    String labelStr = label.getLabel();
+    String category = label.getCategory();
+    if (!categoryKeysSet.containsKey(category)) {
+      logger.debug("Category '{}' not available for label '{}', returning empty label",
+          category, labelStr);
+      return new SimplifiedLabel(label, "");
+    }
+    Set<String> keysSet = categoryKeysSet.get(category);
+    TreeNode<Extractor> extractionsTreeRoot = catExtractionsTreeRoot.get(category);
 
     Function<TreeNode<Extractor>, Boolean> treeNodeVisitor = node -> {
       if (node.parent == null) {
@@ -136,7 +154,7 @@ public class LabelSimplificationService {
       }
 
       // try extract value
-      String extracted = extractor.extract(label);
+      String extracted = extractor.extract(labelStr);
       if (extracted == null) {
         // should not traverse.
         return false;
@@ -156,16 +174,18 @@ public class LabelSimplificationService {
     // for each key, retrieve it's extraction.
     keysSet.forEach(key -> {
       if (!extractionsMap.containsKey(key)) {
-        logger.error("No key '{}' present in extractionsMap for label '{}' "
-                + "(should not happen, check if all matchers were key-mapped properly).",
-            key, label);
+        if (!Objects.equals(key, REMAINDER_KEY_NAME)) {
+          logger.error("No key '{}' present in extractionsMap for label '{}' "
+                  + "(should not happen, check if all matchers were key-mapped properly).",
+              key, labelStr);
+        }
         return;
       }
 
       List<Pair<Extractor, String>> keyExtractions = extractionsMap.get(key);
 
       if (keyExtractions.isEmpty()) {
-        logger.debug("No extractions for key '{}' matched in label '{}'", key, label);
+        logger.debug("No extractions for key '{}' matched in label '{}'", key, labelStr);
         return;
       }
       if (keyExtractions.size() > 1) {
@@ -173,29 +193,35 @@ public class LabelSimplificationService {
             .map(e -> e.getValue() + "(" + e.getKey().getPriority() + ")")
             .collect(Collectors.joining(", "));
         logger.debug("More than 1 extractions ({}) for key '{}' matched in label '{}' -> '{}'",
-            keyExtractions.size(), key, label, keyExtractionsListStr);
+            keyExtractions.size(), key, labelStr, keyExtractionsListStr);
       }
+
       Pair<Extractor, String> firstExtractionPair = Collections.max(
           keyExtractions,
           Comparator.comparing(k -> k.getKey().getPriority())
       );
 
-      labelExtractions.add(firstExtractionPair.getValue()); // grab the first matched extraction.
-      regexMatches.put(key, firstExtractionPair.getKey()
-          .findRegexMatches(label)); // grab the regex matches, used to calculate remainder later.
+      // grab the highest-priority matched extraction.
+      labelExtractions.add(firstExtractionPair.getValue());
+      // grab the regex matches, used to calculate remainder later.
+      regexMatches.put(key, firstExtractionPair.getKey().findRegexMatches(labelStr));
     });
 
     // get remainder, then append to labelExtractions & extractionsMap
-    String cleanRemainder = computeRemainder(label, regexMatches);
+    String cleanRemainder = computeRemainder(labelStr, regexMatches);
 
     if (cleanRemainder.length() > 0) {
       labelExtractions.add(cleanRemainder);
-      extractionsMap.put("REMAINDER", Collections.singletonList(Pair.of(null, cleanRemainder)));
+      extractionsMap.put(
+          REMAINDER_KEY_NAME,
+          Collections.singletonList(Pair.of(null, cleanRemainder))
+      );
     }
 
     String simplifiedString = String.join(" ", labelExtractions);
 
-    SimplifiedLabel simplifiedLabel = new SimplifiedLabel(label, simplifiedString, extractionsMap);
+    SimplifiedLabel simplifiedLabel = new SimplifiedLabel(labelStr, simplifiedString,
+        extractionsMap);
     return simplifiedLabel;
   }
 
@@ -212,4 +238,7 @@ public class LabelSimplificationService {
     return remainder.replaceAll("#", "").trim();
   }
 
+  public Map<String, Set<String>> getCategoryMappings() {
+    return categoryKeysSet;
+  }
 }

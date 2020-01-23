@@ -31,6 +31,8 @@ public class Extractor {
   // current path based on keyName, extractValue, and priority
   private final String currentPath;
 
+  private String category;
+
   public Extractor(String keyName, String extractValue, String matcher) {
     this.keyName = keyName;
     this.extractValue = extractValue;
@@ -44,10 +46,11 @@ public class Extractor {
   }
 
   public Extractor(String keyName, String extractValue, String matcher, String parentPath,
-      Integer priority) {
+      Integer priority, String category) {
     this(keyName, extractValue, matcher);
     this.parentPath = parentPath;
     this.priority = priority;
+    this.category = category;
   }
 
   public String extract(String label) {
@@ -98,6 +101,9 @@ public class Extractor {
   }
 
   private String buildCurrentPath() {
+    if(keyName == null || extractValue == null) {
+      return "";
+    }
     String currentPath = String.format("%s.%s[%d]", keyName, extractValue, priority);
     String parent = parentPath;
     if (parent.length() > 0) {
@@ -145,5 +151,9 @@ public class Extractor {
 
   public String getCurrentPath() {
     return currentPath;
+  }
+
+  public String getCategory() {
+    return category;
   }
 }

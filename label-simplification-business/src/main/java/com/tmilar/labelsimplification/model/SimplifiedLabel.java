@@ -32,7 +32,9 @@ public class SimplifiedLabel extends Label {
 
   public Map<String, String> getExtractedValuesMap() {
     Map<String, String> extractedValues = new LinkedHashMap<>();
-
+    if(extractionsMap == null) {
+      return extractedValues;
+    }
     extractionsMap.forEach((String key, List<Pair<Extractor, String>> extractions) -> {
       String extraction = extractions.stream()
           .map(Pair::getValue)
