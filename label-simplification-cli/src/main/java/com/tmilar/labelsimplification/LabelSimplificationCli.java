@@ -13,6 +13,8 @@ import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -49,7 +51,7 @@ public class LabelSimplificationCli {
     Map<String, Set<String>> categoryMappings = labelSimplificationService.getCategoryMappings();
 
     // output
-    categoryMappings.forEach((category, keys) -> {
+    categoryMappings.forEach((category, categoryHeader) -> {
       List<SimplifiedLabel> simplifiedLabels = labels.stream()
           .filter(label -> Objects.equals(label.getCategory(), category))
           .map(labelSimplificationService::simplifyLabel)
@@ -57,9 +59,10 @@ public class LabelSimplificationCli {
 
       String categoryCsvPath = outputCsvPath.replace(".csv", String.format("_%s.csv", category));
       try {
-        writeResultToCsv(simplifiedLabels, categoryCsvPath, CSV_SEPARATOR);
+        writeResultToCsv(simplifiedLabels, categoryHeader, categoryCsvPath, CSV_SEPARATOR);
       } catch (IOException e) {
-        logger.error("Could not save '{}' labels to csv '{}'", simplifiedLabels, categoryCsvPath, e);
+        logger.error("Could not save '{}' labels to csv '{}'",
+            simplifiedLabels, categoryCsvPath, e);
         return;
       }
       logger.info("Saved {} results to: '{}'", simplifiedLabels.size(), outputCsvPath);
@@ -156,23 +159,26 @@ public class LabelSimplificationCli {
    * @param csvSeparator     - separator to use
    * @throws IOException - exception if path doesn't exist or inaccessible
    */
-  private static void writeResultToCsv(List<SimplifiedLabel> simplifiedLabels, String outputCsvPath,
-      String csvSeparator) throws IOException {
+  private static void writeResultToCsv(List<SimplifiedLabel> simplifiedLabels,
+      Set<String> categoryHeader, String outputCsvPath, String csvSeparator) throws IOException {
+
+    List<String> header = new LinkedList<>(Arrays.asList("Original", "Simplified"));
+    header.addAll(categoryHeader);
 
     try (
         BufferedWriter writer = Files.newBufferedWriter(Paths.get(outputCsvPath));
 
         CSVPrinter csvPrinter = new CSVPrinter(writer, CSVFormat.DEFAULT
-            .withHeader("Original", "Simplified", "Metadata")
+            .withHeader(header.toArray(new String[0]))
             .withDelimiter(csvSeparator.charAt(0)));
     ) {
 
       for (SimplifiedLabel label : simplifiedLabels) {
-        csvPrinter.printRecord(
-            label.getLabel(),
-            label.getSimplifiedLabel(),
-            label.getExtractedValuesMap()
-        );
+        List<String> record = new LinkedList<>(Arrays.asList(label.getLabel(), label.getSimplifiedLabel()));
+        Map<String, String> extractedValuesMap = label.getExtractedValuesMap();
+        categoryHeader.forEach(catHeader -> record.add(extractedValuesMap.get(catHeader)));
+
+        csvPrinter.printRecord(record);
       }
 
       csvPrinter.flush();
