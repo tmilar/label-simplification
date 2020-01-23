@@ -29,7 +29,7 @@ public class Extractor {
   private String parentPath = "";
 
   // current path based on keyName, extractValue, and priority
-  private final String currentPath;
+  private String currentPath = "";
 
   private String category;
 
@@ -41,8 +41,6 @@ public class Extractor {
 
     // pre-compile pattern matcher.
     this.compiledMatcher = Pattern.compile(matcher, Pattern.CASE_INSENSITIVE);
-
-    this.currentPath = buildCurrentPath();
   }
 
   public Extractor(String keyName, String extractValue, String matcher, String parentPath,
@@ -51,6 +49,8 @@ public class Extractor {
     this.parentPath = parentPath;
     this.priority = priority;
     this.category = category;
+
+    this.currentPath = buildCurrentPath();
   }
 
   public String extract(String label) {
@@ -95,7 +95,22 @@ public class Extractor {
     List<String> matches = new ArrayList<>();
 
     while (labelMatcher.find()) {
-      matches.add(labelMatcher.group());
+      int groups = labelMatcher.groupCount();
+      if(groups == 0) {
+        matches.add(labelMatcher.group());
+      }
+      if(groups > 1) {
+        logger.debug("Match with more than 1 groups ({}) for label '{}', regex: '{}'", matches.size(), label, matcher);
+        for (int i = 0; i < groups; i++) {
+          String groupMatch = labelMatcher.group(i);
+          if(groupMatch != null) {
+            matches.add(groupMatch);
+          }
+        }
+      }
+    }
+    if(matches.size() > 1) {
+      logger.info("More than 1 matches ({}) for label '{}', regex: '{}'", matches.size(), label, matcher);
     }
     return matches;
   }

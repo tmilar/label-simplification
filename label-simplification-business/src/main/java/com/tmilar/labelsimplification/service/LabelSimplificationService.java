@@ -130,11 +130,13 @@ public class LabelSimplificationService {
 
     String labelStr = label.getLabel();
     String category = label.getCategory();
+
     if (!categoryKeysSet.containsKey(category)) {
-      logger.debug("Category '{}' not available for label '{}', returning empty label",
+      logger.debug("Label category '{}' not mapped (label: '{}'), returning empty label",
           category, labelStr);
       return new SimplifiedLabel(label, "");
     }
+
     Set<String> keysSet = categoryKeysSet.get(category);
     TreeNode<Extractor> extractionsTreeRoot = catExtractionsTreeRoot.get(category);
 
@@ -190,7 +192,7 @@ public class LabelSimplificationService {
       }
       if (keyExtractions.size() > 1) {
         String keyExtractionsListStr = keyExtractions.stream()
-            .map(e -> e.getValue() + "(" + e.getKey().getPriority() + ")")
+            .map(e -> e.getValue() + " (" + e.getKey().getPriority() + ")")
             .collect(Collectors.joining(", "));
         logger.debug("More than 1 extractions ({}) for key '{}' matched in label '{}' -> '{}'",
             keyExtractions.size(), key, labelStr, keyExtractionsListStr);
@@ -204,7 +206,8 @@ public class LabelSimplificationService {
       // grab the highest-priority matched extraction.
       labelExtractions.add(firstExtractionPair.getValue());
       // grab the regex matches, used to calculate remainder later.
-      regexMatches.put(key, firstExtractionPair.getKey().findRegexMatches(labelStr));
+      List<String> extractorRegexMatches = firstExtractionPair.getKey().findRegexMatches(labelStr);
+      regexMatches.put(key, extractorRegexMatches);
     });
 
     // get remainder, then append to labelExtractions & extractionsMap

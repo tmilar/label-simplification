@@ -44,30 +44,37 @@ public class LabelSimplificationCli {
     LabelSimplificationService labelSimplificationService = new LabelSimplificationService();
     labelSimplificationService.load(extractionRules);
 
-    // process labels
+    // initialize input labels
     List<Label> labels = readLabelsFromCsv(
         labelsInputCsvPath, CSV_SEPARATOR, labelStrColName, labelCatColName);
 
     Map<String, Set<String>> categoryMappings = labelSimplificationService.getCategoryMappings();
 
-    // output
+    // output (one export per category)
     categoryMappings.forEach((category, categoryHeader) -> {
       List<SimplifiedLabel> simplifiedLabels = labels.stream()
           .filter(label -> Objects.equals(label.getCategory(), category))
           .map(labelSimplificationService::simplifyLabel)
           .collect(Collectors.toList());
 
+      if (simplifiedLabels.isEmpty()) {
+        logger.info("Skip save export for category '{}' (no labels simplified for this category)",
+            category);
+        return;
+      }
+
       String categoryCsvPath = outputCsvPath.replace(".csv", String.format("_%s.csv", category));
+
       try {
         writeResultToCsv(simplifiedLabels, categoryHeader, categoryCsvPath, CSV_SEPARATOR);
       } catch (IOException e) {
-        logger.error("Could not save '{}' labels to csv '{}'",
-            simplifiedLabels, categoryCsvPath, e);
+        logger.error("Could not save '{}' labels '{}' category to csv '{}'",
+            simplifiedLabels, category, categoryCsvPath, e);
         return;
       }
-      logger.info("Saved {} results to: '{}'", simplifiedLabels.size(), outputCsvPath);
+      logger.info("Saved category '{}' {} results to: '{}'",
+          category, simplifiedLabels.size(), outputCsvPath);
     });
-
   }
 
   /**
@@ -174,7 +181,8 @@ public class LabelSimplificationCli {
     ) {
 
       for (SimplifiedLabel label : simplifiedLabels) {
-        List<String> record = new LinkedList<>(Arrays.asList(label.getLabel(), label.getSimplifiedLabel()));
+        List<String> record = new LinkedList<>(
+            Arrays.asList(label.getLabel(), label.getSimplifiedLabel()));
         Map<String, String> extractedValuesMap = label.getExtractedValuesMap();
         categoryHeader.forEach(catHeader -> record.add(extractedValuesMap.get(catHeader)));
 
