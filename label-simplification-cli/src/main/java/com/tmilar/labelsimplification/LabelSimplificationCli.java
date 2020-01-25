@@ -43,12 +43,15 @@ public class LabelSimplificationCli {
     List<Extractor> extractionRules = readExtractionRulesFromCsv(rulesCsvPath, CSV_SEPARATOR);
     LabelSimplificationService labelSimplificationService = new LabelSimplificationService();
     labelSimplificationService.load(extractionRules);
+    logger.info("Loaded {} label rules from '{}'", extractionRules.size(), rulesCsvPath);
 
     // initialize input labels
     List<Label> labels = readLabelsFromCsv(
         labelsInputCsvPath, CSV_SEPARATOR, labelStrColName, labelCatColName);
 
     Map<String, Set<String>> categoryMappings = labelSimplificationService.getCategoryMappings();
+
+    logger.info("Processing {} labels from '{}'...", labels.size(), labelsInputCsvPath);
 
     // output (one export per category)
     categoryMappings.forEach((category, categoryHeader) -> {
@@ -58,7 +61,7 @@ public class LabelSimplificationCli {
           .collect(Collectors.toList());
 
       if (simplifiedLabels.isEmpty()) {
-        logger.info("Skip save export for category '{}' (no labels simplified for this category)",
+        logger.info("Skip save export for category '{}' (no labels simplified belong to this category)",
             category);
         return;
       }
@@ -73,7 +76,7 @@ public class LabelSimplificationCli {
         return;
       }
       logger.info("Saved category '{}' {} results to: '{}'",
-          category, simplifiedLabels.size(), outputCsvPath);
+          category, simplifiedLabels.size(), categoryCsvPath);
     });
   }
 

@@ -55,7 +55,7 @@ public class Extractor {
 
   public String extract(String label) {
     if (matcher == null) {
-      logger.warn("Matcher for key '{}' was null - can't apply to label '{}'", label);
+      logger.warn("Matcher for key '{}' was null - can't apply to label '{}'", keyName, label);
     }
 
     if (checkRegexMatch(label)) {
@@ -81,8 +81,7 @@ public class Extractor {
   }
 
   public List<String> findRegexMatches(String label) {
-    boolean hasEmptyMatchers = Arrays.stream(matcher.split("\\|", -1))
-        .anyMatch(m -> Objects.equals(m, ""));
+    boolean hasEmptyMatchers = Arrays.asList(matcher.split("\\|", -1)).contains("");
     if (hasEmptyMatchers) {
       // 'any' matcher -> return immediately
       logger.debug("Empty extraction of key '{}' (regex 'any match': '{}') for label '{}'.",
@@ -99,8 +98,8 @@ public class Extractor {
       if(groups == 0) {
         matches.add(labelMatcher.group());
       }
-      if(groups > 1) {
-        logger.debug("Match with more than 1 groups ({}) for label '{}', regex: '{}'", matches.size(), label, matcher);
+      if(groups >= 1) {
+        logger.debug("Match with 1 or more groups ({}) for label '{}', regex: '{}'", groups, label, matcher);
         for (int i = 0; i < groups; i++) {
           String groupMatch = labelMatcher.group(i);
           if(groupMatch != null) {
