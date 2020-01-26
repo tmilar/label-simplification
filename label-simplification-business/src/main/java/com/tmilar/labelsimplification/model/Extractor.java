@@ -99,13 +99,16 @@ public class Extractor {
         matches.add(labelMatcher.group());
       }
       if(groups >= 1) {
-        logger.debug("Match with 1 or more groups ({}) for label '{}', regex: '{}'", groups, label, matcher);
+        List<String> groupMatches = new ArrayList<>();
         for (int i = 0; i < groups; i++) {
           String groupMatch = labelMatcher.group(i);
           if(groupMatch != null) {
-            matches.add(groupMatch);
+            groupMatches.add(groupMatch);
           }
         }
+        logger.debug("Match with 1 or more groups ({}): {} for label '{}', regex: '{}'",
+                groups, groupMatches, label, matcher);
+        matches.addAll(groupMatches);
       }
     }
     if(matches.size() > 1) {

@@ -17,6 +17,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -28,8 +29,11 @@ public class LabelSimplificationService {
 
   private Map<String, Set<String>> categoryKeysSet;
   private Map<String, TreeNode<Extractor>> catExtractionsTreeRoot;
+  private Map<String, List<String>> categoryStopWords;
 
-  public void load(List<Extractor> extractors) {
+  public void load(List<Extractor> extractors, Map<String, List<String>> categoryStopWords) {
+    this.categoryStopWords = categoryStopWords;
+
     Extractor rootExtractor = new Extractor(null, null, "");
     catExtractionsTreeRoot = new LinkedHashMap<>();
 
@@ -43,6 +47,12 @@ public class LabelSimplificationService {
       Integer priority = extractor.getPriority();
       String category = extractor.getCategory();
 
+      // initialize missing category stopwords with empty list
+      if (!this.categoryStopWords.containsKey(category)) {
+        this.categoryStopWords.put(category, Collections.emptyList());
+      }
+
+      // initialize cateogory extractions tree root
       if (!categoryKeysSet.containsKey(category)) {
         LinkedHashSet<String> keysSet = new LinkedHashSet<>();
         keysSet.add(REMAINDER_KEY_NAME);
@@ -53,10 +63,9 @@ public class LabelSimplificationService {
       categoryKeysSet.get(category).add(keyName);
       TreeNode<Extractor> extractionsTreeRoot = catExtractionsTreeRoot.get(category);
 
-      // find parent by parentKeyName & parentKeyValue.
-      // if parent present -> find child node by keyName
+      // find parent extractor node, by parentPath.
+      // if parent present -> add/update child node by keyName
       // if parent not present -> fail (must match some parent, at least the null root)
-
       boolean isRootKey = parentPath == null
           || Objects.equals(parentPath, "")
           || Objects.equals(parentPath, "null");
@@ -205,15 +214,17 @@ public class LabelSimplificationService {
 
       // grab the highest-priority matched extraction.
       labelExtractions.add(firstExtractionPair.getValue());
+
       // grab the regex matches, used to calculate remainder later.
       List<String> extractorRegexMatches = firstExtractionPair.getKey().findRegexMatches(labelStr);
       regexMatches.put(key, extractorRegexMatches);
     });
 
     // get remainder, then append to labelExtractions & extractionsMap
-    String cleanRemainder = computeRemainder(labelStr, regexMatches);
+    List<String> stopwords = categoryStopWords.get(category);
+    String cleanRemainder = computeRemainder(labelStr, regexMatches, stopwords);
 
-    if (cleanRemainder.length() > 0) {
+    if (StringUtils.isNotEmpty(cleanRemainder)) {
       labelExtractions.add(cleanRemainder);
       extractionsMap.put(
           REMAINDER_KEY_NAME,
@@ -228,7 +239,9 @@ public class LabelSimplificationService {
     return simplifiedLabel;
   }
 
-  private String computeRemainder(String label, Map<String, List<String>> regexMatches) {
+  private String computeRemainder(String label, Map<String, List<String>> regexMatches,
+      List<String> stopwords) {
+
     String remainder = label; // initialize as full label, then remove the matches.
     for (List<String> matches : regexMatches.values()) {
       for (String match : matches) {
@@ -238,7 +251,24 @@ public class LabelSimplificationService {
         remainder = remainder.replace(match, "#");
       }
     }
-    return remainder.replaceAll("#", "").trim();
+
+    String labelRemainder = remainder.replaceAll("#", "").trim();
+
+    // remove stop words from remainder.
+    String cleanRemainder = labelRemainder;
+
+    // remove punctuation
+    cleanRemainder = cleanRemainder.replaceAll("[-,+()&/!:]+?", "");
+
+    // remove stop words
+    for (String word : stopwords) {
+      cleanRemainder = cleanRemainder.replaceAll("(?i)" + word, "");
+    }
+
+    // simplify multiple spaces to single-spaces
+    cleanRemainder = cleanRemainder.replaceAll(" +", " ").trim();
+
+    return cleanRemainder;
   }
 
   public Map<String, Set<String>> getCategoryMappings() {

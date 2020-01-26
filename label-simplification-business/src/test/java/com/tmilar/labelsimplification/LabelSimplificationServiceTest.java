@@ -5,7 +5,9 @@ import com.tmilar.labelsimplification.model.Label;
 import com.tmilar.labelsimplification.model.SimplifiedLabel;
 import com.tmilar.labelsimplification.service.LabelSimplificationService;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.junit.Assert;
 import org.junit.Before;
@@ -19,7 +21,8 @@ public class LabelSimplificationServiceTest {
   public void setup() {
     List<Extractor> extractionRules = sampleExtractionRules();
     labelSimplificationService = new LabelSimplificationService();
-    labelSimplificationService.load(extractionRules);
+    Map<String, List<String>> categoryStopWords = new HashMap<>();
+    labelSimplificationService.load(extractionRules, categoryStopWords);
   }
 
   private List<Extractor> sampleExtractionRules() {

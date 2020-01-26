@@ -14,6 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -30,19 +31,23 @@ import org.apache.logging.log4j.Logger;
 public class LabelSimplificationCli {
 
   private static final Logger logger = LogManager.getLogger(LabelSimplificationCli.class);
-  public static final String CSV_SEPARATOR = ",";
+  private static final String CSV_SEPARATOR = ",";
 
   public static void main(String[] args) throws IOException {
     String labelsInputCsvPath = "/data/input_items.csv";
     String labelStrColName = "Description";
-    String labelCatColName = "Categoria";
+    String labelCatColName = "Category";
     String rulesCsvPath = "/data/input_rules.csv";
     String outputCsvPath = "./out/items_simplified.csv";
+    String stopwordsCsvPath = "/data/stop_words.csv";
 
-    // initialize with extraction rules
+    // initialize labelSimplificationService with extraction rules + stop words
     List<Extractor> extractionRules = readExtractionRulesFromCsv(rulesCsvPath, CSV_SEPARATOR);
+    Map<String, List<String>> categoryStopWords = readStopWordsFromCsv(stopwordsCsvPath,
+        CSV_SEPARATOR);
+
     LabelSimplificationService labelSimplificationService = new LabelSimplificationService();
-    labelSimplificationService.load(extractionRules);
+    labelSimplificationService.load(extractionRules, categoryStopWords);
     logger.info("Loaded {} label rules from '{}'", extractionRules.size(), rulesCsvPath);
 
     // initialize input labels
@@ -61,8 +66,8 @@ public class LabelSimplificationCli {
           .collect(Collectors.toList());
 
       if (simplifiedLabels.isEmpty()) {
-        logger.info("Skip save export for category '{}' (no labels simplified belong to this category)",
-            category);
+        logger.info("Skip save export for category '{}' "
+            + "(no labels simplified belong to this category)", category);
         return;
       }
 
@@ -78,6 +83,39 @@ public class LabelSimplificationCli {
       logger.info("Saved category '{}' {} results to: '{}'",
           category, simplifiedLabels.size(), categoryCsvPath);
     });
+  }
+
+  private static Map<String, List<String>> readStopWordsFromCsv(String csvPath, String csvSeparator)
+      throws IOException {
+    InputStream csvResource = LabelSimplificationCli.class.getResourceAsStream(csvPath);
+
+    Reader bufferedReader = new BufferedReader(new InputStreamReader(csvResource));
+
+    CSVParser csvParser = new CSVParser(bufferedReader,
+        CSVFormat.DEFAULT.withDelimiter(csvSeparator.toCharArray()[0]));
+
+    // Get all rows as list.
+    List<CSVRecord> records = csvParser.getRecords();
+
+    // get labels from each row.
+    Map<String, List<String>> catStopwords = new LinkedHashMap<>();
+
+    for (CSVRecord r : records) {
+      if (r.getRecordNumber() == 1) {
+        continue; // skip header row
+      }
+      String key = r.get(0);
+      String stopword = r.get(1);
+      if (!catStopwords.containsKey(key)) {
+        catStopwords.put(key, new ArrayList<>());
+      }
+      catStopwords.get(key).add(stopword);
+    }
+
+    csvParser.close();
+    bufferedReader.close();
+
+    return catStopwords;
   }
 
   /**
@@ -172,7 +210,7 @@ public class LabelSimplificationCli {
   private static void writeResultToCsv(List<SimplifiedLabel> simplifiedLabels,
       Set<String> categoryHeader, String outputCsvPath, String csvSeparator) throws IOException {
 
-    List<String> header = new LinkedList<>(Arrays.asList("Original", "Simplified"));
+    List<String> header = new LinkedList<>(Arrays.asList("OriginalItem", "CatalogItem"));
     header.addAll(categoryHeader);
 
     try (
